@@ -1,18 +1,18 @@
 ---
 name: image-gen
-description: Generate images using multiple AI models — Midjourney (via TTAPI), Flux, SDXL, Nano Banana (Gemini), and more via fal.ai. Automatically picks the best model based on user intent, or lets the user specify one explicitly.
-homepage: https://fal.ai
-metadata: {"openclaw":{"emoji":"🎨","primaryEnv":"FAL_KEY","requires":{"env":["FAL_KEY","TTAPI_KEY"]},"install":[{"id":"node","kind":"node","package":"@fal-ai/client","label":"Install fal.ai client (npm)"}]}}
+description: Generate images using multiple AI models — Midjourney (via Legnext.ai), Flux, SDXL, Nano Banana (Gemini), and more via fal.ai. Automatically picks the best model based on user intent, or lets the user specify one explicitly.
+homepage: https://legnext.ai
+metadata: {"openclaw":{"emoji":"🎨","primaryEnv":"FAL_KEY","requires":{"env":["FAL_KEY","LEGNEXT_KEY"]},"install":[{"id":"node","kind":"node","package":"@fal-ai/client","label":"Install fal.ai client (npm)"}]}}
 ---
 
 # Image Generation Skill
 
 This skill enables you to generate images using a variety of state-of-the-art AI models. It supports:
 
-- **Midjourney** (via TTAPI) — Best for artistic, cinematic, and highly detailed images.
+- **Midjourney** (via [Legnext.ai](https://legnext.ai)) — Best for artistic, cinematic, and highly detailed images. Faster and more stable than other MJ providers.
 - **Flux 1.1 Pro** (via fal.ai) — Best for photorealistic images and complex scenes.
 - **Flux Dev** (via fal.ai) — Fast, high-quality generation for general use.
-- **Flux Schnell** (via fal.ai) — Ultra-fast generation (4 steps), great for drafts.
+- **Flux Schnell** (via fal.ai) — Ultra-fast generation (<2s), great for quick drafts.
 - **SDXL Lightning** (via fal.ai) — Fast Stable Diffusion XL, great for stylized art.
 - **Nano Banana Pro** (via fal.ai `fal-ai/nano-banana-pro`) — Google Gemini-powered image generation and editing.
 - **Ideogram v3** (via fal.ai) — Best for images with text, logos, and typography.
@@ -29,7 +29,7 @@ When the user does not specify a model, use this guide to pick the best one:
 | Artistic, cinematic, painterly, highly detailed | Midjourney | `midjourney` |
 | Photorealistic, portrait, product photo | Flux 1.1 Pro | `flux-pro` |
 | General purpose, balanced quality/speed | Flux Dev | `flux-dev` |
-| Quick draft, fast iteration | Flux Schnell | `flux-schnell` |
+| Quick draft, fast iteration (<2s) | Flux Schnell | `flux-schnell` |
 | Image with text, logo, poster, typography | Ideogram v3 | `ideogram` |
 | Vector art, icon, flat design, illustration | Recraft v3 | `recraft` |
 | Stylized anime, illustration, concept art | SDXL Lightning | `sdxl` |
@@ -80,24 +80,48 @@ node {baseDir}/generate.js \
 
 ### Midjourney-Specific Notes
 
-For Midjourney, the `--aspect-ratio` is automatically appended to the prompt as `--ar <ratio>`. The model always generates 4 images in a grid. After generation, you can:
+Midjourney is powered by **Legnext.ai** (faster and more stable than TTAPI). The `--aspect-ratio` is automatically appended to the prompt as `--ar <ratio>`. The model always generates 4 images in a grid. After generation, you can:
 
 - Ask the user if they want to **upscale** (U1-U4) or **create variations** (V1-V4) of any image.
 - Use `--action upscale --index <1-4> --job-id <id>` to upscale a specific image.
 - Use `--action variation --index <1-4> --job-id <id>` to create variations.
+- Use `--action reroll --job-id <id>` to re-generate with the same prompt.
+
+**Upscale types** (via `--upscale-type`):
+- `0` = Subtle (default): Conservative enhancement, preserves original details. Best for photography.
+- `1` = Creative: More artistic interpretation. Best for illustrations.
+
+**Variation types** (via `--variation-type`):
+- `0` = Subtle (default): Minor changes while preserving composition.
+- `1` = Strong: More dramatic variations with significant changes.
 
 ```bash
-# Upscale image 2 from a previous Midjourney generation
+# Upscale image 2 from a previous Midjourney generation (subtle)
 node {baseDir}/generate.js \
   --model midjourney \
   --action upscale \
   --index 2 \
+  --job-id <previous_job_id> \
+  --upscale-type 0
+
+# Create a strong variation of image 3
+node {baseDir}/generate.js \
+  --model midjourney \
+  --action variation \
+  --index 3 \
+  --job-id <previous_job_id> \
+  --variation-type 1
+
+# Reroll (regenerate with same prompt)
+node {baseDir}/generate.js \
+  --model midjourney \
+  --action reroll \
   --job-id <previous_job_id>
 ```
 
 ### Prompt Enhancement Tips
 
-- **For Midjourney**: Add style keywords like `cinematic lighting`, `photorealistic`, `--v 6.1`, `--style raw`, `--ar 16:9`
+- **For Midjourney**: Add style keywords like `cinematic lighting`, `photorealistic`, `--v 7`, `--style raw`, `--ar 16:9`. Legnext.ai supports all MJ parameters.
 - **For Flux**: Add quality boosters like `masterpiece`, `highly detailed`, `sharp focus`, `professional photography`
 - **For Ideogram**: Be explicit about text content, font style, and layout
 - **For Recraft**: Specify `vector illustration`, `flat design`, `icon style`, `SVG-style`
@@ -111,7 +135,7 @@ This skill requires the following environment variables to be set in your OpenCl
 | Variable | Description | Where to get it |
 |---|---|---|
 | `FAL_KEY` | fal.ai API key (for Flux, SDXL, Nano Banana, Ideogram, Recraft) | https://fal.ai/dashboard/keys |
-| `TTAPI_KEY` | TTAPI key (for Midjourney only) | https://ttapi.io/dashboard |
+| `LEGNEXT_KEY` | Legnext.ai API key (for Midjourney) | https://legnext.ai/dashboard |
 
 Configure them in `~/.openclaw/openclaw.json`:
 ```json
@@ -122,7 +146,7 @@ Configure them in `~/.openclaw/openclaw.json`:
         "enabled": true,
         "env": {
           "FAL_KEY": "your_fal_key_here",
-          "TTAPI_KEY": "your_ttapi_key_here"
+          "LEGNEXT_KEY": "your_legnext_key_here"
         }
       }
     }
@@ -135,13 +159,16 @@ Configure them in `~/.openclaw/openclaw.json`:
 ## Example Conversations
 
 **User**: "帮我画一只在雪山上的雪豹，电影感光效"
-**Action**: Select `midjourney`, enhance prompt to `"a majestic snow leopard on a snowy mountain peak, cinematic lighting, dramatic atmosphere, ultra detailed --ar 16:9 --v 6.1"`, run script.
+**Action**: Select `midjourney`, enhance prompt to `"a majestic snow leopard on a snowy mountain peak, cinematic lighting, dramatic atmosphere, ultra detailed --ar 16:9 --v 7"`, run script.
 
 **User**: "用 Flux 生成一张产品海报，白色背景，一瓶香水"
 **Action**: Select `flux-pro`, enhance prompt, run script with `--aspect-ratio 3:4`.
 
 **User**: "快速生成一个草稿看看效果"
-**Action**: Select `flux-schnell` for fastest generation.
+**Action**: Select `flux-schnell` for fastest generation (<2 seconds).
 
 **User**: "帮我做一个 App 图标，扁平风格，蓝色系"
 **Action**: Select `recraft`, use prompt with `flat design icon, blue color scheme, minimal, vector style`.
+
+**User**: "把第2张图片放大"
+**Action**: Run with `--model midjourney --action upscale --index 2 --job-id <id>`.

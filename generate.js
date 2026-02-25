@@ -2,7 +2,7 @@
 /**
  * image-gen skill — generate.js
  * Unified image generation script for OpenClaw.
- * Supports: Midjourney (TTAPI), Flux Pro/Dev/Schnell, SDXL Lightning,
+ * Supports: Midjourney (Legnext.ai), Flux Pro/Dev/Schnell, SDXL Lightning,
  *           Nano Banana Pro, Ideogram v3, Recraft v3 (all via fal.ai)
  *
  * Usage:
@@ -12,38 +12,41 @@
 
 import { fal } from "@fal-ai/client";
 import https from "https";
-import http from "http";
 import { parseArgs } from "util";
 
 // ── Parse CLI arguments ────────────────────────────────────────────────────
 const { values: args } = parseArgs({
   options: {
-    model:           { type: "string", default: "flux-dev" },
-    prompt:          { type: "string", default: "" },
-    "aspect-ratio":  { type: "string", default: "1:1" },
-    "num-images":    { type: "string", default: "1" },
-    "negative-prompt": { type: "string", default: "" },
-    action:          { type: "string", default: "" },   // upscale | variation | reroll
-    index:           { type: "string", default: "1" },  // 1-4 for MJ actions
-    "job-id":        { type: "string", default: "" },   // MJ jobId for actions
-    seed:            { type: "string", default: "" },
+    model:              { type: "string", default: "flux-dev" },
+    prompt:             { type: "string", default: "" },
+    "aspect-ratio":     { type: "string", default: "1:1" },
+    "num-images":       { type: "string", default: "1" },
+    "negative-prompt":  { type: "string", default: "" },
+    action:             { type: "string", default: "" },   // upscale | variation | reroll
+    index:              { type: "string", default: "1" },  // 1-4 for MJ actions
+    "job-id":           { type: "string", default: "" },   // MJ jobId for actions
+    "upscale-type":     { type: "string", default: "0" },  // 0=Subtle, 1=Creative
+    "variation-type":   { type: "string", default: "0" },  // 0=Subtle, 1=Strong
+    seed:               { type: "string", default: "" },
   },
   strict: false,
 });
 
-const MODEL      = args["model"];
-const PROMPT     = args["prompt"];
-const AR         = args["aspect-ratio"];
-const NUM_IMAGES = parseInt(args["num-images"], 10) || 1;
-const NEG_PROMPT = args["negative-prompt"];
-const ACTION     = args["action"];
-const INDEX      = parseInt(args["index"], 10) || 1;
-const JOB_ID     = args["job-id"];
-const SEED       = args["seed"] ? parseInt(args["seed"], 10) : undefined;
+const MODEL          = args["model"];
+const PROMPT         = args["prompt"];
+const AR             = args["aspect-ratio"];
+const NUM_IMAGES     = parseInt(args["num-images"], 10) || 1;
+const NEG_PROMPT     = args["negative-prompt"];
+const ACTION         = args["action"];
+const INDEX          = parseInt(args["index"], 10) || 1;
+const JOB_ID         = args["job-id"];
+const UPSCALE_TYPE   = parseInt(args["upscale-type"], 10) || 0;
+const VARIATION_TYPE = parseInt(args["variation-type"], 10) || 0;
+const SEED           = args["seed"] ? parseInt(args["seed"], 10) : undefined;
 
 // ── Environment variables ──────────────────────────────────────────────────
-const FAL_KEY   = process.env.FAL_KEY;
-const TTAPI_KEY = process.env.TTAPI_KEY;
+const FAL_KEY      = process.env.FAL_KEY;
+const LEGNEXT_KEY  = process.env.LEGNEXT_KEY;
 
 // ── fal.ai model IDs ───────────────────────────────────────────────────────
 const FAL_MODELS = {
@@ -92,18 +95,18 @@ function error(msg, details) {
   process.exit(1);
 }
 
-// ── TTAPI HTTP helper ──────────────────────────────────────────────────────
-function ttapiPost(path, body) {
+// ── Legnext.ai HTTP helper ─────────────────────────────────────────────────
+function legnextRequest(method, path, body) {
   return new Promise((resolve, reject) => {
-    const payload = JSON.stringify(body);
+    const payload = body ? JSON.stringify(body) : null;
     const options = {
-      hostname: "api.ttapi.io",
-      path,
-      method: "POST",
+      hostname: "api.legnext.ai",
+      path: `/api/v1${path}`,
+      method,
       headers: {
         "Content-Type": "application/json",
-        "Content-Length": Buffer.byteLength(payload),
-        "TT-API-KEY": TTAPI_KEY,
+        "x-api-key": LEGNEXT_KEY,
+        ...(payload && { "Content-Length": Buffer.byteLength(payload) }),
       },
     };
     const req = https.request(options, (res) => {
@@ -111,98 +114,142 @@ function ttapiPost(path, body) {
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
         try { resolve(JSON.parse(data)); }
-        catch (e) { reject(new Error(`Invalid JSON: ${data}`)); }
+        catch (e) { reject(new Error(`Invalid JSON response: ${data}`)); }
       });
     });
     req.on("error", reject);
-    req.write(payload);
+    if (payload) req.write(payload);
     req.end();
   });
 }
 
-async function ttapiPoll(jobId, maxWait = 300_000, interval = 5_000) {
+async function legnextPoll(jobId, maxWait = 300_000, interval = 5_000) {
   const deadline = Date.now() + maxWait;
   while (Date.now() < deadline) {
-    const res = await ttapiPost("/midjourney/v1/fetch", { jobId });
-    const d = res.data;
-    if (d.status === "SUCCESS" || d.status === "FAILED") return d;
-    process.stderr.write(`[MJ] Progress: ${d.progress ?? "?"}%\n`);
+    const res = await legnextRequest("GET", `/job/${jobId}`);
+    const status = res.status;
+    if (status === "completed") return res;
+    if (status === "failed") throw new Error(`Midjourney job failed: ${res.error?.message || "unknown error"}`);
+    process.stderr.write(`[MJ] Status: ${status} ...\n`);
     await new Promise((r) => setTimeout(r, interval));
   }
   throw new Error(`Midjourney job ${jobId} timed out after ${maxWait / 1000}s`);
 }
 
-// ── Midjourney via TTAPI ───────────────────────────────────────────────────
+// ── Midjourney via Legnext.ai ──────────────────────────────────────────────
 async function generateMidjourney() {
-  if (!TTAPI_KEY) error("TTAPI_KEY is not set. Please configure it in your OpenClaw skill env.");
+  if (!LEGNEXT_KEY) error("LEGNEXT_KEY is not set. Please configure it in your OpenClaw skill env.");
 
-  // Handle action commands (upscale / variation / reroll)
-  if (ACTION && JOB_ID) {
-    const actionMap = {
-      upscale:   `upsample${INDEX}`,
-      variation: `variation${INDEX}`,
-      reroll:    "reroll",
-      "vary-subtle":   "vary_subtle",
-      "vary-strong":   "vary_strong",
-      "zoom-out-2x":   "zoom_out_2x",
-      "zoom-out-1.5x": "zoom_out_1_5x",
-      "pan-left":      "pan_left",
-      "pan-right":     "pan_right",
-      "pan-up":        "pan_up",
-      "pan-down":      "pan_down",
-    };
-    const mjAction = actionMap[ACTION];
-    if (!mjAction) error(`Unknown action: ${ACTION}`);
-
-    process.stderr.write(`[MJ] Submitting action: ${mjAction} on job ${JOB_ID}\n`);
-    const res = await ttapiPost("/midjourney/v1/action", { jobId: JOB_ID, action: mjAction });
-    if (res.status !== "SUCCESS") error("TTAPI action submission failed", res);
-    const newJobId = res.data.jobId;
-    process.stderr.write(`[MJ] Action job submitted: ${newJobId}\n`);
-    const result = await ttapiPoll(newJobId);
-    if (result.status === "FAILED") error("Midjourney action failed", result.failReason);
-
+  // ── Upscale action ─────────────────────────────────────────────────────
+  if (ACTION === "upscale" && JOB_ID) {
+    const imageNo = INDEX - 1; // Convert 1-4 to 0-3
+    process.stderr.write(`[MJ] Upscaling image ${INDEX} (imageNo=${imageNo}, type=${UPSCALE_TYPE}) from job ${JOB_ID}\n`);
+    const res = await legnextRequest("POST", "/upscale", {
+      jobId: JOB_ID,
+      imageNo,
+      type: UPSCALE_TYPE,
+    });
+    if (!res.job_id) error("Legnext upscale submission failed", res);
+    process.stderr.write(`[MJ] Upscale job submitted: ${res.job_id}\n`);
+    const result = await legnextPoll(res.job_id);
     output({
       success: true,
       model: "midjourney",
-      action: ACTION,
-      jobId: newJobId,
-      imageUrl: result.cdnImage || result.discordImage,
-      uImages: result.uImages || [],
+      action: "upscale",
+      jobId: res.job_id,
+      imageUrl: result.output?.image_url || null,
     });
     return;
   }
 
-  // Standard imagine
-  if (!PROMPT) error("--prompt is required for Midjourney generation.");
-  let mjPrompt = PROMPT;
-  if (AR && AR !== "1:1") {
-    const arForMJ = AR.replace(":", ":");
-    mjPrompt += ` --ar ${arForMJ}`;
+  // ── Variation action ───────────────────────────────────────────────────
+  if (ACTION === "variation" && JOB_ID) {
+    const imageNo = INDEX - 1; // Convert 1-4 to 0-3
+    process.stderr.write(`[MJ] Creating variation for image ${INDEX} (imageNo=${imageNo}, type=${VARIATION_TYPE}) from job ${JOB_ID}\n`);
+    const body = {
+      jobId: JOB_ID,
+      imageNo,
+      type: VARIATION_TYPE,
+    };
+    if (PROMPT) body.remixPrompt = PROMPT;
+    const res = await legnextRequest("POST", "/variation", body);
+    if (!res.job_id) error("Legnext variation submission failed", res);
+    process.stderr.write(`[MJ] Variation job submitted: ${res.job_id}\n`);
+    const result = await legnextPoll(res.job_id);
+    output({
+      success: true,
+      model: "midjourney",
+      action: "variation",
+      jobId: res.job_id,
+      imageUrl: result.output?.image_url || null,
+      imageUrls: result.output?.image_urls || [],
+    });
+    return;
   }
 
-  process.stderr.write(`[MJ] Submitting imagine: "${mjPrompt}"\n`);
-  const res = await ttapiPost("/midjourney/v1/imagine", {
-    prompt: mjPrompt,
-    mode: "fast",
-    hookUrl: "",
-    timeout: 300,
-    getUImages: true,
+  // ── Reroll action ──────────────────────────────────────────────────────
+  if (ACTION === "reroll" && JOB_ID) {
+    process.stderr.write(`[MJ] Rerolling job ${JOB_ID}\n`);
+    const res = await legnextRequest("POST", "/reroll", { jobId: JOB_ID });
+    if (!res.job_id) error("Legnext reroll submission failed", res);
+    process.stderr.write(`[MJ] Reroll job submitted: ${res.job_id}\n`);
+    const result = await legnextPoll(res.job_id);
+    output({
+      success: true,
+      model: "midjourney",
+      action: "reroll",
+      jobId: res.job_id,
+      imageUrl: result.output?.image_url || null,
+      imageUrls: result.output?.image_urls || [],
+    });
+    return;
+  }
+
+  // ── Describe action ────────────────────────────────────────────────────
+  if (ACTION === "describe" && JOB_ID) {
+    process.stderr.write(`[MJ] Describing job ${JOB_ID}\n`);
+    const res = await legnextRequest("POST", "/describe", { jobId: JOB_ID });
+    if (!res.job_id) error("Legnext describe submission failed", res);
+    const result = await legnextPoll(res.job_id);
+    output({
+      success: true,
+      model: "midjourney",
+      action: "describe",
+      jobId: res.job_id,
+      description: result.output?.text || null,
+    });
+    return;
+  }
+
+  // ── Standard imagine ───────────────────────────────────────────────────
+  if (!PROMPT) error("--prompt is required for Midjourney generation.");
+
+  // Append aspect ratio to prompt if not 1:1
+  let mjPrompt = PROMPT;
+  if (AR && AR !== "1:1") {
+    mjPrompt += ` --ar ${AR}`;
+  }
+
+  process.stderr.write(`[MJ] Submitting imagine via Legnext.ai: "${mjPrompt}"\n`);
+  const res = await legnextRequest("POST", "/diffusion", {
+    text: mjPrompt,
   });
-  if (res.status !== "SUCCESS") error("TTAPI imagine submission failed", res);
-  const jobId = res.data.jobId;
+
+  if (!res.job_id) error("Legnext imagine submission failed", res);
+  const jobId = res.job_id;
   process.stderr.write(`[MJ] Job submitted: ${jobId}\n`);
 
-  const result = await ttapiPoll(jobId);
-  if (result.status === "FAILED") error("Midjourney generation failed", result.failReason);
+  const result = await legnextPoll(jobId);
 
   output({
     success: true,
     model: "midjourney",
+    provider: "legnext.ai",
     jobId,
     prompt: mjPrompt,
-    imageUrl: result.cdnImage || result.discordImage,
-    uImages: result.uImages || [],
+    imageUrl: result.output?.image_url || null,
+    imageUrls: result.output?.image_urls || [],
+    seed: result.output?.seed || null,
     note: "4 images generated. Use --action upscale --index <1-4> --job-id to upscale, or --action variation to create variants.",
   });
 }
@@ -219,7 +266,6 @@ async function generateFal(modelKey) {
   const [width, height] = arToWidthHeight(AR);
   const imageSize = arToFalImageSize(AR);
 
-  // Build input based on model
   let input = {};
 
   if (modelKey === "flux-pro") {

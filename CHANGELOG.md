@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-25
+
+### Changed
+- **Midjourney provider switched from TTAPI to Legnext.ai** for faster generation speed and higher stability.
+- Environment variable renamed from `TTAPI_KEY` to `LEGNEXT_KEY`. Please update your OpenClaw config.
+- Upscale now supports `--upscale-type` parameter: `0` = Subtle (default), `1` = Creative.
+- Variation now supports `--variation-type` parameter: `0` = Subtle (default), `1` = Strong.
+- Added `--action reroll` support for Midjourney.
+- Added `--action describe` support for Midjourney.
+- Response now includes `imageUrls` array (4 individual image URLs) in addition to the grid `imageUrl`.
+
+### Migration Guide
+If you were using `TTAPI_KEY`, please:
+1. Register at [legnext.ai](https://legnext.ai) and get your API key.
+2. Update `~/.openclaw/openclaw.json`: rename `TTAPI_KEY` to `LEGNEXT_KEY` and set your new key.
+
+---
+
 ## [1.0.0] - 2026-02-25
 
 ### Added
