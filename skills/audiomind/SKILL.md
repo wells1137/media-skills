@@ -1,6 +1,6 @@
 ---
 name: AudioMind
-version: 2.1.7
+version: 2.1.8
 author: "@wells1137"
 emoji: "🎧"
 tags:
@@ -105,6 +105,8 @@ All user-provided text (prompt, narration, effect description) is sent only to t
 ## Trust Statement
 
 By using this skill, your prompts and text are sent to the AudioMind Proxy (hosted at audiomind-proxy.vercel.app) and, for generation, to ElevenLabs and fal.ai. Only install if you trust these services. The skill does not download or execute arbitrary code; it only calls the documented HTTP API and optional local scripts (cli.js, start_server.sh) included in the skill package.
+
+**Why VirusTotal (or a single “clean” scan) is not enough to trust a skill:** VirusTotal aggregates many antivirus engines that look for known malware signatures. A skill can be unsafe through its *instructions* (what the agent is told to do) or script *behavior* (e.g. sending data to an untrusted endpoint), not just through traditional malware. A “clean” result does not guarantee safety. Prefer reviewing this SKILL’s **External Endpoints**, **Security & Privacy**, and **Trust Statement** (and the source code if you can) before installing.
 
 ## Model Registry (Vercel Pro–ready)
 
