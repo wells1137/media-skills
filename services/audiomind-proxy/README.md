@@ -35,6 +35,24 @@ ElevenLabs API
 
 Add header `X-Audiomind-Key: AM_PRO_xxxxx` for Pro users (unlimited usage).
 
+## Local debug
+
+Run the proxy locally without Vercel:
+
+```bash
+cd services/audiomind-proxy
+cp .env.example .env   # set ELEVENLABS_API_KEY and FAL_KEY
+npm run dev
+```
+
+Then:
+
+- `GET http://localhost:3123/api/health` — health check
+- `GET http://localhost:3123/api/audio` — model registry
+- `POST http://localhost:3123/api/audio` — body: `{ "text": "Hello" }` (TTS) or `{ "action": "sfx", "text": "rain" }`, etc.
+
+Optional: use Pro header to skip free limit: `X-Audiomind-Key: AM_PRO_xxxxx`.
+
 ## Deployment
 
 1. Install Vercel CLI: `npm i -g vercel`
@@ -46,6 +64,7 @@ Add header `X-Audiomind-Key: AM_PRO_xxxxx` for Pro users (unlimited usage).
 | Variable | Description |
 |----------|-------------|
 | `ELEVENLABS_API_KEY` | Your ElevenLabs API key (kept secret on server) |
+| `FAL_KEY` | fal.ai API key (for MiniMax TTS, CassetteAI, Beatoven, etc.) — optional for TTS-only |
 
 ## Free Trial Logic
 

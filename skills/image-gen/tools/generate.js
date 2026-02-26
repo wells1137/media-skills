@@ -229,7 +229,7 @@ async function pollOnce(jobId) {
       imageUrls,
       displayImageUrl: imageUrls[0] || imageUrl,
       seed: res.output?.seed || null,
-      note: "4 images generated. Prefer displayImageUrl or imageUrls for display (grid imageUrl may expire). Use --action upscale --index <1-4> --job-id to upscale, or --action variation to create variants.",
+      note: "Send to user ONLY displayImageUrl or imageUrls (cdn.legnext.ai/mj/...). NEVER send imageUrl (cdn.legnext.ai/temp/...) — it expires and shows as broken. Use --action upscale --index <1-4> --job-id to upscale.",
     });
   } else if (status === "failed") {
     output({
@@ -449,7 +449,7 @@ async function generateMidjourney() {
     imageUrls,
     displayImageUrl: imageUrls[0] || imageUrl,
     seed: result.output?.seed || null,
-    note: "4 images generated. Prefer displayImageUrl or imageUrls for display (grid imageUrl may expire). Use --action upscale --index <1-4> --job-id to upscale, or --action variation to create variants.",
+    note: "Send to user ONLY displayImageUrl or imageUrls (cdn.legnext.ai/mj/...). NEVER send imageUrl (cdn.legnext.ai/temp/...) — it expires and shows as broken. Use --action upscale --index <1-4> --job-id to upscale.",
   });
 }
 

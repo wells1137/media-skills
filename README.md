@@ -2,6 +2,8 @@
 
 A personal AI agent framework and skill collection for [OpenClaw](https://openclaw.ai) and MCP-compatible platforms. This repository contains the agent's soul, a library of skills, and the backing services that power them.
 
+**Community:** [OpenClaw on Telegram](https://t.me/claw101) · [ClawHub](https://clawhub.ai)
+
 ---
 
 ## Framework

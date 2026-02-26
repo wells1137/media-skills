@@ -16,7 +16,8 @@
  * GET /api/generate → model registry
  */
 
-export const config = { maxDuration: 120 };
+// Vercel Pro: maxDuration up to 300s for long fal.ai runs
+export const config = { maxDuration: 300 };
 
 const FREE_LIMIT = 50;
 

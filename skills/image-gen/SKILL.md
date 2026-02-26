@@ -49,6 +49,11 @@ When a user asks to generate an image, follow these steps:
 4. **Call the generation script**: Use the `exec` tool to run the generation script.
 5. **Return the result**: Present the image URL(s) to the user.
 
+### User Experience Rules (important)
+
+- **Same-turn polling for Midjourney:** After submitting a Midjourney job, do **not** reply "已提交，完成后通知你" and end your turn. The bot cannot push a message later — the user would have to ask "还没好?" to trigger the next turn. Instead, in the **same** turn, keep calling `--poll --job-id` every ~15s until `status: "completed"`, then send the result in that same turn. For multiple parallel jobs, poll all job_ids until all are completed, then send one message with all results.
+- **Links for Midjourney (Legnext):** When sending the result, use **only** `displayImageUrl` or `imageUrls` from the script output. **Never** send `imageUrl` (the grid) — it is `cdn.legnext.ai/temp/...` and expires (shows as broken). Use only `cdn.legnext.ai/mj/...` links.
+
 ### Calling the Generation Script
 
 Use the `exec` tool to run the Node.js script at `{baseDir}/generate.js`:
@@ -81,11 +86,11 @@ node {baseDir}/generate.js \
 
 ---
 
-## ⚡ Midjourney Async (Non-Blocking) Workflow — REQUIRED
+## ⚡ Midjourney Workflow — Submit Then Poll in the SAME Turn (REQUIRED)
 
-**IMPORTANT**: Midjourney generation takes 10-60 seconds. To avoid blocking the bot from responding to other messages, you MUST use the async workflow for ALL Midjourney requests.
+**Why the user must not have to ask "还没好?":** The bot cannot "push" a message by itself. It only replies when you (the agent) produce a response in the current turn. If you reply with "已提交，完成后通知你" and then **end your turn**, the user will never get the result until they send a new message (e.g. "还没好?"). So you must **not** end your turn after submitting. In the **same** turn, keep polling until the job completes, then send the result in that same turn.
 
-### Step 1 — Submit job (returns immediately, ~1s)
+### Step 1 — Submit job (returns immediately with job_id)
 
 ```bash
 node {baseDir}/generate.js \
@@ -95,12 +100,9 @@ node {baseDir}/generate.js \
   --async
 ```
 
-This returns immediately with a `job_id`. Tell the user the job has been submitted and you'll notify them when done. **Do NOT wait — proceed to handle other messages.**
+You get a `job_id`. **Do not** reply to the user yet with "已提交" and stop. Continue to Step 2 in the same turn.
 
-Example response to user:
-> ✅ Midjourney 任务已提交！预计 10-20 秒完成（turbo 模式），我会在完成后立刻通知你。
-
-### Step 2 — Poll status (non-blocking, call repeatedly until done)
+### Step 2 — In the SAME turn, poll until completed
 
 ```bash
 node {baseDir}/generate.js \
@@ -109,29 +111,26 @@ node {baseDir}/generate.js \
   --job-id <job_id>
 ```
 
-Returns one of:
-- `status: "completed"` → job done, `imageUrl` and `imageUrls` are available
-- `status: "pending"` or `"processing"` → still running, poll again in ~10s
-- `status: "failed"` → job failed, show error to user
+- If `status: "completed"` → go to Step 3 and send the result in this turn.
+- If `status: "pending"` or `"processing"` → call poll again after ~15s (same turn). Repeat until completed (up to ~5 polls, ~75s).
+- If still pending after ~75s, then you may reply once: "还在排队，稍后发「还没好」我帮你查"，and end the turn.
 
-### Step 3 — Notify user when completed
+**Multiple parallel jobs:** Submit all jobs first, then in the same turn poll each job_id in turn until **all** are completed, then send one message with all results. Do not end the turn with "3 个任务已提交" and expect to "notify later" — the user will have to ask "还没好?" to get anything.
 
-When poll returns `status: "completed"`, send the image URL(s) to the user.
+### Step 3 — Send result in this turn (only imageUrls / displayImageUrl)
 
-**Important — link stability:** Legnext's grid preview link (`imageUrl`) can expire quickly. Prefer sending **single-image URLs** from the `imageUrls` array (e.g. `imageUrls[0]` for the first image, or all four) so the user can reliably see the result. If your client only supports one image, use `imageUrls[0]` (or `displayImageUrl` if present in the script output) first.
+When poll returns `status: "completed"`, send **one** message with the image links. Use **only** `displayImageUrl` or `imageUrls` (never `imageUrl` — temp link, expires).
 
-> 🎨 你的图片生成完成了！[查看图片](displayImageUrl 或 imageUrls[0])
-> 
-> 想要放大哪张？(U1-U4) 或者创建变体？(V1-V4)
+**Critical — do NOT send fake/expired links:** Use only **`displayImageUrl`** or **`imageUrls`** from the script output (`cdn.legnext.ai/mj/...`). Never send `imageUrl` (`cdn.legnext.ai/temp/...`).
 
-### Polling Strategy
+> 🎨 你的图片生成完成了！[图1](imageUrls[0]) [图2](imageUrls[1]) [图3](imageUrls[2]) [图4](imageUrls[3])  
+> 想要放大哪张？(U1-U4) 或变体？(V1-V4)
 
-Use the `exec` tool to poll every ~15 seconds. After submitting, you can:
-1. Tell the user the job is submitted
-2. Poll once after ~15 seconds
-3. If still pending, poll again after another 15 seconds
-4. Repeat up to ~5 times (total ~75 seconds max wait per poll cycle)
-5. If still not done, tell the user you'll check again later
+### Summary: Same-turn polling
+
+1. Submit → get job_id. Do **not** reply "已提交" and end the turn.
+2. In the **same** turn, poll every ~15s until `status: "completed"` (or timeout ~75s).
+3. When completed, send the result in that same turn. The user must **not** need to ask "还没好?" to see the result.
 
 ---
 

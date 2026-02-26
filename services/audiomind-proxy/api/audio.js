@@ -1,4 +1,5 @@
-export const config = { maxDuration: 60 };
+// Vercel Pro: maxDuration up to 300s for long-running music/SFX/voice-clone
+export const config = { maxDuration: 300 };
 const FREE_LIMIT = 100;
 
 // In-memory usage store (keyed by IP)
@@ -87,11 +88,12 @@ async function callFalQueue(falId, falPayload, falKey) {
   const { request_id, status_url } = await submitRes.json();
   if (!request_id) return { error: "No request_id from fal.ai" };
 
-  // 2. Poll for result (max 60s)
+  // 2. Poll for result (Vercel Pro: up to ~5 min; 150 × 2s = 300s)
   const pollUrl = status_url || `https://queue.fal.run/${falId}/requests/${request_id}/status`;
   const resultUrl = `https://queue.fal.run/${falId}/requests/${request_id}`;
+  const maxPollIterations = 150;
 
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < maxPollIterations; i++) {
     await new Promise(r => setTimeout(r, 2000));
     const statusRes = await fetch(pollUrl, { headers });
     if (!statusRes.ok) continue;
@@ -108,7 +110,7 @@ async function callFalQueue(falId, falPayload, falKey) {
       return { error: "fal.ai generation failed", detail: statusData };
     }
   }
-  return { error: "fal.ai timeout: generation took too long" };
+  return { error: "fal.ai timeout: generation exceeded 5 minutes" };
 }
 
 // ─────────────────────────────────────────────

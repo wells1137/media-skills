@@ -16,7 +16,8 @@
  * }
  */
 
-export const config = { maxDuration: 30 };
+// Vercel Pro: maxDuration 300s for Legnext/MJ polling
+export const config = { maxDuration: 300 };
 
 const FREE_LIMIT = 20;  // MJ is expensive, lower free limit
 

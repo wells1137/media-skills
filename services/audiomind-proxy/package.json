@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "AudioMind Proxy - ElevenLabs API gateway for the audiomind ClawHub skill",
   "type": "module",
-  "engines": {
-    "node": "20.x"
+  "engines": { "node": "20.x" },
+  "scripts": {
+    "dev": "node --env-file=.env scripts/dev-server.js",
+    "debug": "node --env-file=.env scripts/dev-server.js"
   }
 }
