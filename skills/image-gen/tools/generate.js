@@ -157,15 +157,18 @@ async function pollOnce(jobId) {
   const status = res.status;
 
   if (status === "completed") {
+    const imageUrls = res.output?.image_urls || [];
+    const imageUrl = res.output?.image_url || null;
     output({
       success: true,
       model: "midjourney",
       jobId,
       status: "completed",
-      imageUrl: res.output?.image_url || null,
-      imageUrls: res.output?.image_urls || [],
+      imageUrl,
+      imageUrls,
+      displayImageUrl: imageUrls[0] || imageUrl,
       seed: res.output?.seed || null,
-      note: "4 images generated. Use --action upscale --index <1-4> --job-id to upscale, or --action variation to create variants.",
+      note: "4 images generated. Prefer displayImageUrl or imageUrls for display (grid imageUrl may expire). Use --action upscale --index <1-4> --job-id to upscale, or --action variation to create variants.",
     });
   } else if (status === "failed") {
     output({
@@ -224,12 +227,14 @@ async function generateMidjourney() {
     }
 
     const result = await legnextPoll(res.job_id);
+    const imageUrl = result.output?.image_url || null;
     output({
       success: true,
       model: "midjourney",
       action: "upscale",
       jobId: res.job_id,
-      imageUrl: result.output?.image_url || null,
+      imageUrl,
+      displayImageUrl: imageUrl,
     });
     return;
   }
@@ -262,13 +267,16 @@ async function generateMidjourney() {
     }
 
     const result = await legnextPoll(res.job_id);
+    const imageUrls = result.output?.image_urls || [];
+    const imageUrl = result.output?.image_url || null;
     output({
       success: true,
       model: "midjourney",
       action: "variation",
       jobId: res.job_id,
-      imageUrl: result.output?.image_url || null,
-      imageUrls: result.output?.image_urls || [],
+      imageUrl,
+      imageUrls,
+      displayImageUrl: imageUrls[0] || imageUrl,
     });
     return;
   }
@@ -294,13 +302,16 @@ async function generateMidjourney() {
     }
 
     const result = await legnextPoll(res.job_id);
+    const imageUrls = result.output?.image_urls || [];
+    const imageUrl = result.output?.image_url || null;
     output({
       success: true,
       model: "midjourney",
       action: "reroll",
       jobId: res.job_id,
-      imageUrl: result.output?.image_url || null,
-      imageUrls: result.output?.image_urls || [],
+      imageUrl,
+      imageUrls,
+      displayImageUrl: imageUrls[0] || imageUrl,
     });
     return;
   }
@@ -365,16 +376,19 @@ async function generateMidjourney() {
   // ── Sync mode: wait for completion (default, may block Bot) ───────────
   const result = await legnextPoll(jobId);
 
+  const imageUrls = result.output?.image_urls || [];
+  const imageUrl = result.output?.image_url || null;
   output({
     success: true,
     model: "midjourney",
     provider: "legnext.ai",
     jobId,
     prompt: mjPrompt,
-    imageUrl: result.output?.image_url || null,
-    imageUrls: result.output?.image_urls || [],
+    imageUrl,
+    imageUrls,
+    displayImageUrl: imageUrls[0] || imageUrl,
     seed: result.output?.seed || null,
-    note: "4 images generated. Use --action upscale --index <1-4> --job-id to upscale, or --action variation to create variants.",
+    note: "4 images generated. Prefer displayImageUrl or imageUrls for display (grid imageUrl may expire). Use --action upscale --index <1-4> --job-id to upscale, or --action variation to create variants.",
   });
 }
 

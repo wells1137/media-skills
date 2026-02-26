@@ -116,8 +116,11 @@ Returns one of:
 
 ### Step 3 — Notify user when completed
 
-When poll returns `status: "completed"`, send the image URL(s) to the user:
-> 🎨 你的图片生成完成了！[查看图片](imageUrl)
+When poll returns `status: "completed"`, send the image URL(s) to the user.
+
+**Important — link stability:** Legnext's grid preview link (`imageUrl`) can expire quickly. Prefer sending **single-image URLs** from the `imageUrls` array (e.g. `imageUrls[0]` for the first image, or all four) so the user can reliably see the result. If your client only supports one image, use `imageUrls[0]` (or `displayImageUrl` if present in the script output) first.
+
+> 🎨 你的图片生成完成了！[查看图片](displayImageUrl 或 imageUrls[0])
 > 
 > 想要放大哪张？(U1-U4) 或者创建变体？(V1-V4)
 
