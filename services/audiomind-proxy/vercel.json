@@ -1,3 +1,11 @@
 {
-  "version": 2
+  "version": 2,
+  "functions": {
+    "api/audio.js": {
+      "maxDuration": 300
+    },
+    "api/health.js": {
+      "maxDuration": 10
+    }
+  }
 }
