@@ -39,6 +39,7 @@ const { values: args } = parseArgs({
     poll:               { type: "boolean", default: false }, // check status once, no wait
     proxy:              { type: "boolean", default: false }, // use proxy server instead of direct API
     "proxy-url":        { type: "string", default: "" },    // proxy server URL
+    "auto-upscale":     { type: "boolean", default: false }, // after imagine, auto-upscale all 4 images
   },
   strict: false,
 });
@@ -57,6 +58,7 @@ const MODE           = args["mode"] || "turbo";  // turbo (~10-20s), fast (~30-6
 const SEED           = args["seed"] ? parseInt(args["seed"], 10) : undefined;
 const ASYNC_MODE     = args["async"] === true;
 const POLL_MODE      = args["poll"] === true;
+const AUTO_UPSCALE   = args["auto-upscale"] === true;
 
 const PROXY_MODE   = args["proxy"] === true;
 const PROXY_URL    = args["proxy-url"] || process.env.IMAGE_GEN_PROXY_URL || "https://image-gen-proxy.vercel.app";
@@ -243,10 +245,92 @@ async function generateViaProxy() {
     }
     // Imagine
     if (!PROMPT) error("--prompt is required for Midjourney generation.");
-    const data = await proxyRequest("midjourney", {
+
+    if (ASYNC_MODE && !AUTO_UPSCALE) {
+      // Pure async: submit and return immediately
+      const data = await proxyRequest("midjourney", {
+        action: "imagine", prompt: PROMPT, aspect_ratio: AR, mode: MODE,
+      });
+      output(data);
+      return;
+    }
+
+    // Submit imagine job
+    const imagineData = await proxyRequest("midjourney", {
       action: "imagine", prompt: PROMPT, aspect_ratio: AR, mode: MODE,
     });
-    output(data);
+
+    if (!AUTO_UPSCALE) {
+      // Normal mode: return imagine result as-is
+      output(imagineData);
+      return;
+    }
+
+    // ── AUTO-UPSCALE: wait for imagine to complete, then upscale all 4 ──
+    const imagineJobId = imagineData.job_id;
+    if (!imagineJobId) {
+      output(imagineData); // fallback if no job_id
+      return;
+    }
+
+    process.stderr.write(`[auto-upscale] imagine submitted: ${imagineJobId}. Polling until complete...\n`);
+
+    // Poll imagine until completed
+    let imagineResult = null;
+    for (let i = 0; i < 40; i++) {
+      await new Promise(r => setTimeout(r, 15000));
+      const pollData = await proxyRequest("midjourney", { action: "poll", job_id: imagineJobId });
+      process.stderr.write(`[auto-upscale] imagine status: ${pollData.status}\n`);
+      if (pollData.status === "completed") {
+        imagineResult = pollData;
+        break;
+      }
+    }
+
+    if (!imagineResult) {
+      error("imagine job timed out before auto-upscale could start");
+      return;
+    }
+
+    // Submit upscale for all 4 images in parallel
+    process.stderr.write(`[auto-upscale] imagine complete. Submitting upscale for all 4 images...\n`);
+    const upscaleJobs = await Promise.all([1, 2, 3, 4].map(async (idx) => {
+      const upData = await proxyRequest("midjourney", {
+        action: "upscale", job_id: imagineJobId, index: idx, type: 0,
+      });
+      process.stderr.write(`[auto-upscale] upscale index ${idx} submitted: ${upData.job_id}\n`);
+      return { index: idx, job_id: upData.job_id };
+    }));
+
+    // Poll all upscale jobs until complete
+    const upscaleResults = Array(4).fill(null);
+    const pending = new Set(upscaleJobs.map((_, i) => i));
+
+    for (let round = 0; round < 30 && pending.size > 0; round++) {
+      await new Promise(r => setTimeout(r, 15000));
+      for (const i of [...pending]) {
+        const job = upscaleJobs[i];
+        const pollData = await proxyRequest("midjourney", { action: "poll", job_id: job.job_id });
+        process.stderr.write(`[auto-upscale] upscale index ${job.index} status: ${pollData.status}\n`);
+        if (pollData.status === "completed") {
+          const imgUrl = pollData.displayImageUrl || (pollData.imageUrls || [])[0] || pollData.image_url || "";
+          upscaleResults[i] = { index: job.index, image_url: imgUrl };
+          pending.delete(i);
+        }
+      }
+    }
+
+    const upscaledImages = upscaleResults.filter(Boolean).map(r => r.image_url);
+    output({
+      success: true,
+      model: "midjourney",
+      action: "imagine+auto-upscale",
+      imagine_job_id: imagineJobId,
+      prompt: PROMPT,
+      images: upscaledImages,
+      image_url: upscaledImages[0] || null,
+      note: "All 4 images have been individually upscaled. Use the 'images' array for all 4 single images.",
+    });
   } else if (FAL_MODELS[MODEL]) {
     // fal.ai models via proxy
     if (!PROMPT) error("--prompt is required.");
@@ -512,8 +596,8 @@ async function generateMidjourney() {
   const jobId = res.job_id;
   process.stderr.write(`[MJ] Job submitted: ${jobId}\n`);
 
-  // ── Async mode: return immediately after submission ────────────────────
-  if (ASYNC_MODE) {
+  // ── Async mode (no auto-upscale): return immediately after submission ──
+  if (ASYNC_MODE && !AUTO_UPSCALE) {
     output({
       success: true,
       model: "midjourney",
@@ -527,22 +611,78 @@ async function generateMidjourney() {
     return;
   }
 
-  // ── Sync mode: wait for completion (default, may block Bot) ───────────
+  // ── Sync mode: wait for imagine completion ─────────────────────────────
   const result = await legnextPoll(jobId);
 
-  const imageUrls = result.output?.image_urls || [];
-  const imageUrl = result.output?.image_url || null;
+  if (!AUTO_UPSCALE) {
+    // Normal sync: return grid image
+    const imageUrls = result.output?.image_urls || [];
+    const imageUrl = result.output?.image_url || null;
+    output({
+      success: true,
+      model: "midjourney",
+      provider: "legnext.ai",
+      jobId,
+      prompt: mjPrompt,
+      imageUrl,
+      imageUrls,
+      displayImageUrl: imageUrls[0] || imageUrl,
+      seed: result.output?.seed || null,
+      note: "Send to user ONLY displayImageUrl or imageUrls (cdn.legnext.ai/mj/...). NEVER send imageUrl (cdn.legnext.ai/temp/...) — it expires and shows as broken. Use --action upscale --index <1-4> --job-id to upscale.",
+    });
+    return;
+  }
+
+  // ── AUTO-UPSCALE: imagine complete, now upscale all 4 images ──────────
+  process.stderr.write(`[auto-upscale] imagine complete. Submitting upscale for all 4 images...\n`);
+
+  // Submit all 4 upscale jobs
+  const upscaleJobs = [];
+  for (const idx of [1, 2, 3, 4]) {
+    const imageNo = idx - 1;
+    const upRes = await legnextRequest("POST", "/upscale", { jobId, imageNo, type: 0 });
+    if (!upRes.job_id) {
+      process.stderr.write(`[auto-upscale] upscale index ${idx} submission failed\n`);
+      upscaleJobs.push({ index: idx, job_id: null });
+    } else {
+      process.stderr.write(`[auto-upscale] upscale index ${idx} submitted: ${upRes.job_id}\n`);
+      upscaleJobs.push({ index: idx, job_id: upRes.job_id });
+    }
+  }
+
+  // Poll all upscale jobs until complete
+  const upscaleResults = Array(4).fill(null);
+  const pending = new Set(upscaleJobs.filter(j => j.job_id).map((_, i) => i));
+
+  for (let round = 0; round < 30 && pending.size > 0; round++) {
+    await new Promise(r => setTimeout(r, 15000));
+    for (const i of [...pending]) {
+      const job = upscaleJobs[i];
+      const pollRes = await legnextRequest("GET", `/job/${job.job_id}`);
+      const status = pollRes.status;
+      process.stderr.write(`[auto-upscale] upscale index ${job.index} status: ${status}\n`);
+      if (status === "completed") {
+        const imgUrl = pollRes.output?.image_url || null;
+        upscaleResults[i] = { index: job.index, image_url: imgUrl };
+        pending.delete(i);
+      } else if (status === "failed") {
+        upscaleResults[i] = { index: job.index, image_url: null, error: "upscale failed" };
+        pending.delete(i);
+      }
+    }
+  }
+
+  const upscaledImages = upscaleResults.filter(r => r?.image_url).map(r => r.image_url);
   output({
     success: true,
     model: "midjourney",
     provider: "legnext.ai",
+    action: "imagine+auto-upscale",
     jobId,
     prompt: mjPrompt,
-    imageUrl,
-    imageUrls,
-    displayImageUrl: imageUrls[0] || imageUrl,
-    seed: result.output?.seed || null,
-    note: "Send to user ONLY displayImageUrl or imageUrls (cdn.legnext.ai/mj/...). NEVER send imageUrl (cdn.legnext.ai/temp/...) — it expires and shows as broken. Use --action upscale --index <1-4> --job-id to upscale.",
+    images: upscaledImages,
+    image_url: upscaledImages[0] || null,
+    note: "All 4 images have been individually upscaled and returned in the 'images' array.",
   });
 }
 

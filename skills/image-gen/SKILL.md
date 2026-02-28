@@ -74,6 +74,7 @@ node {baseDir}/generate.js \
 - `--num-images`: Number of images to generate, 1-4 (default: `1`, Midjourney always returns 4)
 - `--negative-prompt`: Things to avoid in the image (not supported by Midjourney)
 - `--mode`: Midjourney speed mode: `turbo` (default, ~10-20s, requires Pro/Mega plan), `fast` (~30-60s), `relax` (free but slow)
+- `--auto-upscale`: **(Midjourney only)** After imagine completes, automatically upscale all 4 grid images and return them as 4 individual single images. The output `images` array will contain 4 separate upscaled URLs instead of a single grid image.
 
 **Example:**
 ```bash
@@ -138,6 +139,7 @@ When poll returns `status: "completed"`, send **one** message with the image lin
 
 Midjourney is powered by **Legnext.ai** (faster and more stable than TTAPI). **Turbo mode is enabled by default** (`--turbo`), which reduces generation time to ~10-20 seconds (requires a Midjourney Pro or Mega plan). The `--aspect-ratio` is automatically appended to the prompt as `--ar <ratio>`. The model always generates 4 images in a grid. After generation, you can:
 
+- Use `--auto-upscale` to **automatically upscale all 4 images** in one command — this is the recommended default for most use cases.
 - Ask the user if they want to **upscale** (U1-U4) or **create variations** (V1-V4) of any image.
 - Use `--action upscale --index <1-4> --job-id <id>` to upscale a specific image.
 - Use `--action variation --index <1-4> --job-id <id>` to create variations.
@@ -220,7 +222,7 @@ Configure them in `~/.openclaw/openclaw.json`:
 ## Example Conversations
 
 **User**: "帮我画一只在雪山上的雪豹，电影感光效"
-**Action**: Select `midjourney`, enhance prompt to `"a majestic snow leopard on a snowy mountain peak, cinematic lighting, dramatic atmosphere, ultra detailed --ar 16:9 --v 7"`, run script with `--async`. Tell user job submitted, then poll for result.
+**Action**: Select `midjourney`, enhance prompt to `"a majestic snow leopard on a snowy mountain peak, cinematic lighting, dramatic atmosphere, ultra detailed --ar 16:9 --v 7"`, run script with `--auto-upscale --proxy`. This will automatically imagine + upscale all 4 images and return them as 4 individual single images in the `images` array. Present all 4 to the user.
 
 **User**: "用 Flux 生成一张产品海报，白色背景，一瓶香水"
 **Action**: Select `flux-pro`, enhance prompt, run script with `--aspect-ratio 3:4`. (Flux is fast ~5s, no async needed)
@@ -280,8 +282,11 @@ node {baseDir}/generate.js \
 ### Proxy Mode for Midjourney
 
 ```bash
-# Submit
+# Submit and get grid (4 images in one)
 node {baseDir}/generate.js --model midjourney --prompt "a dragon" --proxy --proxy-url https://image-gen-proxy.vercel.app
+
+# Submit and auto-upscale all 4 images (RECOMMENDED — returns 4 single images)
+node {baseDir}/generate.js --model midjourney --prompt "a dragon" --auto-upscale --proxy --proxy-url https://image-gen-proxy.vercel.app
 
 # Poll (does not consume quota)
 node {baseDir}/generate.js --model midjourney --poll --job-id <id> --proxy --proxy-url https://image-gen-proxy.vercel.app
