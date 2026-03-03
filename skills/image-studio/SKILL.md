@@ -1,5 +1,5 @@
 ---
-name: image-gen
+name: image-studio
 version: 2.0.0
 author: "wells"
 emoji: "🎨"

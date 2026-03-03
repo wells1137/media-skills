@@ -1,5 +1,5 @@
 ---
-name: kling-video-generator
+name: kling-studio
 version: 1.1.0
 author: "wells1137"
 emoji: "🎬"
@@ -14,7 +14,7 @@ description: >
   Full-featured Kling 3.0 Omni video generation skill. Covers text-to-video, image-to-video,
   video editing (base mode), video reference (feature mode), multi-shot generation, and
   audio-synced video. Includes validated API constraint rules and prompt engineering guide.
-homepage: https://github.com/wells1137/kling-video-generator
+homepage: https://github.com/wells1137/media-skills/tree/main/skills/kling-studio
 metadata:
   openclaw:
     emoji: "🎬"

@@ -1,5 +1,5 @@
 ---
-name: overlay-skill
+name: video-overlay
 description: >
   Adds professional packaging and motion graphics to videos. Use when the user asks to add intros, outros, subtitles, transitions, watermarks, or lower thirds to a video. Supports multiple styles and custom options, no API key required.
 version: 2.1.0
