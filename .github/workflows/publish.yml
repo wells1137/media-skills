@@ -156,7 +156,7 @@ jobs:
         run: |
           echo "📊 Triggering skills.sh install count..."
           # Install and immediately remove to register the install event
-          npx --yes skills add wells1137/skills-gen --yes 2>/dev/null || true
+          npx --yes skills add wells1137/media-skills --yes 2>/dev/null || true
           echo "✅ skills.sh install count triggered"
 
   # ─────────────────────────────────────────────
@@ -194,7 +194,7 @@ jobs:
             NOTES+="clawhub install wells1137/$skill_name\n"
           done
           NOTES+="\n# Via npx skills\n"
-          NOTES+="npx skills add wells1137/skills-gen\n"
+          NOTES+="npx skills add wells1137/media-skills\n"
           NOTES+="\`\`\`\n"
           
           echo -e "$NOTES" > release_notes.md
