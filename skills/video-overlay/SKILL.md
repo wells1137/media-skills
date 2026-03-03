@@ -38,9 +38,9 @@ Use this skill when the user asks to:
 **User:** "Can you add my logo to this video? It should be in the top right corner."
 *User uploads `my_video.mp4` and `logo.png`*
 
-**Agent using `overlay-skill`:**
+**Agent using `video-overlay`:**
 ```bash
-python /home/ubuntu/skills/overlay-skill/scripts/add_watermark.py --input my_video.mp4 --output video_with_watermark.mp4 --image logo.png --position top_right
+python /home/ubuntu/skills/video-overlay/scripts/add_watermark.py --input my_video.mp4 --output video_with_watermark.mp4 --image logo.png --position top_right
 ```
 
 ### 2. Add Subtitles
@@ -48,9 +48,9 @@ python /home/ubuntu/skills/overlay-skill/scripts/add_watermark.py --input my_vid
 **User:** "Add the subtitle 'Hello, world!' from 5 seconds to 10 seconds into the video."
 *User uploads `my_video.mp4`*
 
-**Agent using `overlay-skill`:**
+**Agent using `video-overlay`:**
 ```bash
-python /home/ubuntu/skills/overlay-skill/scripts/add_subtitles.py --input my_video.mp4 --output video_with_subtitles.mp4 --text "Hello, world!" --start 00:00:05 --end 00:00:10 --style modern
+python /home/ubuntu/skills/video-overlay/scripts/add_subtitles.py --input my_video.mp4 --output video_with_subtitles.mp4 --text "Hello, world!" --start 00:00:05 --end 00:00:10 --style modern
 ```
 
 ## Resources

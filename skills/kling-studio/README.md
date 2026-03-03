@@ -1,4 +1,4 @@
-# kling-video-generator
+# kling-studio
 
 > An Agent Skill for generating high-quality videos using the **Kling 3.0 Omni** model via the official Kling API.
 
@@ -39,7 +39,7 @@ This skill is built on **extensive API testing** of the Kling 3.0 Omni model. Th
 ## File Structure
 
 ```
-kling-video-generator/
+kling-studio/
 ├── SKILL.md                        # Main skill instructions and workflow
 ├── README.md                       # This file
 ├── references/
@@ -137,5 +137,5 @@ To publish this skill to the [ClawHub registry](https://www.clawhub.ai), use the
 clawhub login
 
 # Then, publish the skill from its root directory
-clawhub publish . --slug kling-video-generator --name "Kling 3.0 Video Generator" --version 1.0.0 --changelog "Initial release based on extensive API testing"
+clawhub publish . --slug kling-studio --name "Kling 3.0 Video Generator" --version 1.0.0 --changelog "Initial release based on extensive API testing"
 ```

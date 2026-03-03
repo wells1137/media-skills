@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * image-gen skill — generate.js
+ * image-studio skill — generate.js
  * Unified image generation script for OpenClaw.
  * Supports: Midjourney (Legnext.ai), Flux Pro/Dev/Schnell, SDXL Lightning,
  *           Nano Banana Pro, Ideogram v3, Recraft v3 (all via fal.ai)

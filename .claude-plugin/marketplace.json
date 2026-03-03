@@ -4,8 +4,8 @@
   },
   "skills": [
     {
-      "name": "image-gen",
-      "source": "./skills/image-gen",
+      "name": "image-studio",
+      "source": "./skills/image-studio",
       "description": "Generate images with 8 AI models (Midjourney, Flux, Ideogram, and more). Zero API keys needed.",
       "strict": false,
       "skills": ["./"]
@@ -18,16 +18,23 @@
       "skills": ["./"]
     },
     {
-      "name": "overlay-skill",
-      "source": "./skills/overlay-skill",
+      "name": "video-overlay",
+      "source": "./skills/video-overlay",
       "description": "Add professional intros, subtitles, watermarks, and lower thirds to videos.",
       "strict": false,
       "skills": ["./"]
     },
     {
-      "name": "seedance-prompt-designer",
-      "source": "./skills/seedance-prompt-designer",
+      "name": "seedance-prompter",
+      "source": "./skills/seedance-prompter",
       "description": "Expert prompt engineering for Seedance 2.0 video generation.",
+      "strict": false,
+      "skills": ["./"]
+    },
+    {
+      "name": "kling-studio",
+      "source": "./skills/kling-studio",
+      "description": "Full-featured Kling 3.0 Omni video generation — text, image, video editing, multi-shot.",
       "strict": false,
       "skills": ["./"]
     }

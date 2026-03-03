@@ -181,10 +181,10 @@ openclaw gateway status
 - 确认 `~/.openclaw/.env` 里的 `TELEGRAM_BOT_TOKEN` 正确、没多余空格。  
 - 若是 pairing 模式，在服务器本机执行 `openclaw pairing list telegram`，再 `openclaw pairing approve telegram <CODE>` 批准你的账号。
 
-**Q：想用技能（audiomind、image-gen）？**  
+**Q：想用技能（audiomind、image-studio）？**  
 - 若用 Vercel 代理，在 `~/.openclaw/.env` 里可加（可选）：  
   `AUDIOMIND_PROXY_URL=https://audiomind-proxy.vercel.app`  
-  `IMAGE_GEN_PROXY_URL=https://image-gen-proxy.vercel.app`  
+  `IMAGE_GEN_PROXY_URL=https://image-studio-proxy.vercel.app`  
 - 技能配置在 `openclaw.json` 里，你从本机 scp 过去时已经带上了。
 
 ---

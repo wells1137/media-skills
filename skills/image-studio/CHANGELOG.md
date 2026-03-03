@@ -71,4 +71,4 @@ If you were using `TTAPI_KEY`, please:
 - Negative prompt support for fal.ai models.
 - Seed parameter support for reproducible results.
 - Automatic job polling for Midjourney tasks (up to 5 minutes).
-- Published to ClawHub as `wells1137/image-gen@1.0.0`.
+- Published to ClawHub as `wells1137/image-studio@1.0.0`.

@@ -60,7 +60,7 @@ To correctly use the Kling API, you MUST follow this decision-making workflow to
 
 Before constructing the API call, you must first design the prompt(s) based on the user's request. The quality of the prompt is the single most important factor for a good result.
 
-1.  **Consult the Prompting Guide**: Read `/home/ubuntu/skills/kling-video-generator/references/prompt_guide.md` to understand the core principles, official formula, and few-shot examples for writing effective prompts.
+1.  **Consult the Prompting Guide**: Read `/home/ubuntu/skills/kling-studio/references/prompt_guide.md` to understand the core principles, official formula, and few-shot examples for writing effective prompts.
 
 2.  **Identify the Scenario**: Determine which of the following scenarios the user is requesting:
     -   Single-shot video (from text, image, or video)

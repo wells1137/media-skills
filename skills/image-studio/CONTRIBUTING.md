@@ -1,11 +1,11 @@
 # Contributing Guide
 
-本文档说明如何参与 `image-gen` Skill 的开发与迭代。
+本文档说明如何参与 `image-studio` Skill 的开发与迭代。
 
 ## 项目结构
 
 ```
-image-gen/
+image-studio/
 ├── SKILL.md          # Skill 核心定义文件（OpenClaw 读取此文件）
 ├── tools/
 │   └── generate.js   # 图片生成核心脚本（Node.js ESM）
@@ -19,8 +19,8 @@ image-gen/
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/wells1137/image-gen-skill.git
-cd image-gen-skill
+git clone https://github.com/wells1137/image-studio-skill.git
+cd image-studio-skill
 
 # 2. 安装依赖
 npm install
@@ -81,7 +81,7 @@ clawhub login --token <your_clawhub_token>
 
 # 发布新版本
 clawhub publish . \
-  --slug image-gen \
+  --slug image-studio \
   --name "Image Gen" \
   --version 2.x.x \
   --changelog "本次更新内容..." \

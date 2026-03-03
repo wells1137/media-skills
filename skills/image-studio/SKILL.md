@@ -4,7 +4,7 @@ version: 2.0.0
 author: "wells"
 emoji: "🎨"
 tags:
-  - image-generation
+  - image-studioeration
   - midjourney
   - flux
   - gemini
@@ -13,7 +13,7 @@ tags:
   - recraft
 description: >
   Tired of juggling 8 API keys? This skill gives you one-command access to Midjourney, Flux, Ideogram, and more, with zero setup. Use when you want to generate any image without worrying about API keys.
-homepage: https://github.com/wells1137/image-gen-skill
+homepage: https://github.com/wells1137/image-studio-skill
 metadata:
   openclaw:
     emoji: "🎨"
@@ -192,7 +192,7 @@ Configure in `~/.openclaw/openclaw.json`:
 {
   "skills": {
     "entries": {
-      "image-gen": {
+      "image-studio": {
         "enabled": true,
         "env": {
           "FAL_KEY": "your_fal_key_here",

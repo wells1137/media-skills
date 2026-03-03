@@ -1,5 +1,5 @@
 {
-  "name": "image-gen-skill",
+  "name": "image-studio-skill",
   "version": "1.0.0",
   "description": "OpenClaw skill for unified image generation (Midjourney, Flux, SDXL, Nano Banana, Ideogram, Recraft)",
   "type": "module",

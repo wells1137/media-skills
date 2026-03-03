@@ -5,7 +5,7 @@
 
 set -e
 
-REPO="wells1137/skills-gen"
+REPO="wells1137/media-skills"
 
 echo "🏷️  Setting GitHub Topics for $REPO..."
 
@@ -23,7 +23,7 @@ gh api \
   -f "names[]=claude-code-skills" \
   -f "names[]=claude-code-marketplace" \
   -f "names[]=agentskills" \
-  -f "names[]=image-generation" \
+  -f "names[]=image-studioeration" \
   -f "names[]=audio-generation" \
   -f "names[]=content-creation" \
   -f "names[]=openclaw"
@@ -34,7 +34,7 @@ echo "Topics added:"
 echo "  claude-skills, agent-skills, skill-md, skillsmp,"
 echo "  claude-code, claude-code-plugin, claude-code-skill,"
 echo "  claude-code-skills, claude-code-marketplace, agentskills,"
-echo "  image-generation, audio-generation, content-creation, openclaw"
+echo "  image-studioeration, audio-generation, content-creation, openclaw"
 echo ""
 echo "🔍 Your repo will now be discovered by:"
 echo "  - SkillsMP (searches filename:SKILL.md + topics)"

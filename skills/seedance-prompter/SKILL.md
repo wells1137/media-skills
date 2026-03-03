@@ -26,7 +26,7 @@ This skill analyzes all user inputs and generates a single, optimized JSON objec
 **User Request:** "Make the Mona Lisa drink a Coke. I want it to feel cinematic, like a close-up shot."
 *User uploads `monalisa.png` and `coke.png`*
 
-**Agent using `seedance-prompt-designer`:**
+**Agent using `seedance-prompter`:**
 *The agent internally processes the request and assets, then outputs the final JSON to the next skill in the chain.*
 
 **Final Output (for internal use):**
