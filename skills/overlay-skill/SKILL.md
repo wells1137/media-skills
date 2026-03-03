@@ -1,7 +1,9 @@
 ---
 name: overlay-skill
 description: Adds professional packaging and motion graphics to videos, including intros/outros, subtitles, transitions, watermarks, and lower thirds. Supports multiple styles and custom options.
-version: 1.1.0
+version: 2.0.0
+author: wells1137
+tags: [video, editing, motion graphics, ffmpeg, moviepy]
 ---
 
 # Overlay Skill
@@ -10,118 +12,70 @@ This skill adds a variety of professional packaging and motion graphics to video
 
 ## Core Features
 
-This skill supports five core features:
-
-1.  **Intro/Outro**: Add an engaging opening or a professional closing to your video.
-2.  **Subtitles/Titles**: Overlay static or dynamic text information on the video.
-3.  **Transitions**: Create smooth or dynamic transitions between two video clips.
-4.  **Watermark/Borders**: Add copyright information or decorative borders to your video.
-5.  **Lower Thirds**: Display names, locations, or other information in the lower part of the screen.
+| Feature | Description | Example Use Case |
+| :--- | :--- | :--- |
+| **Intro/Outro** | Add an engaging opening or a professional closing. | Brand logo animation, "Thanks for watching" screen. |
+| **Subtitles/Titles** | Overlay static or dynamic text information. | Dialogue subtitles, chapter titles, call-to-action text. |
+| **Transitions** | Create smooth or dynamic transitions between clips. | Fade between scenes, wipe to reveal next shot. |
+| **Watermark/Borders** | Add copyright information or decorative borders. | Channel logo in corner, cinematic black bars. |
+| **Lower Thirds** | Display names, locations, or other info. | Interviewee name and title, location identifier. |
 
 ## Workflow
 
-To use this skill, follow these general steps:
+To use this skill, the agent follows these general steps:
 
-1.  **Select Feature**: Choose one of the five core features based on your needs.
-2.  **Choose Style/Template**: Select a preset style or template for the chosen feature. You can also choose "custom" for more detailed parameter settings.
-3.  **Configure Parameters**: Provide the necessary parameters as prompted, such as text content, image paths, colors, and positions.
-4.  **Execute Script**: Run the corresponding Python script to generate the effect.
-5.  **Preview & Adjust**: Preview the generated effect and, if necessary, return to the previous step to adjust parameters and regenerate.
+1.  **Select Feature**: Choose one of the five core features based on the user's request.
+2.  **Choose Style/Template**: Select a preset style from `templates/presets.json` (e.g., `modern`, `cyberpunk`, `business`).
+3.  **Configure Parameters**: Provide the necessary parameters to the appropriate script (e.g., text content, image paths, colors, positions).
+4.  **Execute Script**: Run the corresponding Python script from the `/scripts` directory to generate the effect.
+5.  **Preview & Deliver**: The final video is generated and presented to the user.
 
-## Usage Guide
+## Usage Guide (for Agent Development)
+
+This section details the command-line interface for each script, intended for agent developers to understand how to execute the skill's functions.
 
 ### 1. Intro/Outro
 
-Use the `add_intro_outro.py` script to add an intro or outro to your video.
-
-**Usage:**
+**Script**: `add_intro_outro.py`
 
 ```bash
-python /home/ubuntu/skills/overlay-skill/scripts/add_intro_outro.py [options]
+python /home/ubuntu/skills/overlay-skill/scripts/add_intro_outro.py --input <video> --output <video> --type <intro|outro> --text "Your Text" --template <name>
 ```
-
-**Options:**
-
-*   `--input <video_path>`: Path to the input video file.
-*   `--output <video_path>`: Path to the output video file.
-*   `--type <intro|outro>`: Specify whether to add an intro or outro.
-*   `--template <template_name>`: Choose a preset template (e.g., `modern`, `cyberpunk`).
-*   `--text <text>`: Text to display in the intro/outro.
 
 ### 2. Subtitles/Titles
 
-Use the `add_subtitles.py` script to add subtitles or titles to your video.
-
-**Usage:**
+**Script**: `add_subtitles.py`
 
 ```bash
-python /home/ubuntu/skills/overlay-skill/scripts/add_subtitles.py [options]
+python /home/ubuntu/skills/overlay-skill/scripts/add_subtitles.py --input <video> --output <video> --text "Your Text" --start HH:MM:SS --end HH:MM:SS --style <name>
 ```
-
-**Options:**
-
-*   `--input <video_path>`: Path to the input video file.
-*   `--output <video_path>`: Path to the output video file.
-*   `--text <text>`: The subtitle text to display.
-*   `--start <time>`: Start time for the subtitle (format: `HH:MM:SS`).
-*   `--end <time>`: End time for the subtitle (format: `HH:MM:SS`).
-*   `--style <style_name>`: Choose a preset subtitle style (e.g., `simple`, `animated`).
 
 ### 3. Transitions
 
-Use the `add_transition.py` script to create a transition effect between two video clips.
-
-**Usage:**
+**Script**: `add_transition.py`
 
 ```bash
-python /home/ubuntu/skills/overlay-skill/scripts/add_transition.py [options]
+python /home/ubuntu/skills/overlay-skill/scripts/add_transition.py --input1 <video1> --input2 <video2> --output <video> --type <fade|slide|wipe>
 ```
-
-**Options:**
-
-*   `--input1 <video_path>`: Path to the first video clip.
-*   `--input2 <video_path>`: Path to the second video clip.
-*   `--output <video_path>`: Path to the output video file.
-*   `--type <fade|slide|wipe>`: Choose the transition type.
 
 ### 4. Watermark/Borders
 
-Use the `add_watermark.py` script to add a watermark or border to your video.
-
-**Usage:**
+**Script**: `add_watermark.py`
 
 ```bash
-python /home/ubuntu/skills/overlay-skill/scripts/add_watermark.py [options]
+python /home/ubuntu/skills/overlay-skill/scripts/add_watermark.py --input <video> --output <video> --image <image> --position <pos> --border-color <color>
 ```
-
-**Options:**
-
-*   `--input <video_path>`: Path to the input video file.
-*   `--output <video_path>`: Path to the output video file.
-*   `--image <image_path>`: Path to the watermark image.
-*   `--position <top-left|bottom-right|center>`: Position of the watermark.
-*   `--border-color <color>`: Border color (e.g., `white`, `#FF0000`).
 
 ### 5. Lower Thirds
 
-Use the `add_lower_third.py` script to add a lower third to your video.
-
-**Usage:**
+**Script**: `add_lower_third.py`
 
 ```bash
-python /home/ubuntu/skills/overlay-skill/scripts/add_lower_third.py [options]
+python /home/ubuntu/skills/overlay-skill/scripts/add_lower_third.py --input <video> --output <video> --title "Title" --subtitle "Subtitle" --template <name>
 ```
-
-**Options:**
-
-*   `--input <video_path>`: Path to the input video file.
-*   `--output <video_path>`: Path to the output video file.
-*   `--title <text>`: Main title text.
-*   `--subtitle <text>`: Subtitle text.
-*   `--template <template_name>`: Choose a preset template (e.g., `business`, `cartoon`).
 
 ## Resources
 
-*   **Scripts**: Located in `/home/ubuntu/skills/overlay-skill/scripts/`, containing the implementation code for all features.
-*   **Templates**: Located in `/home/ubuntu/skills/overlay-skill/templates/`, containing various preset animations, styles, and configuration files.
-*   **References**: Located in `/home/ubuntu/skills/overlay-skill/references/`, providing common commands and tips for FFmpeg and MoviePy.
+- **`/scripts/`**: Contains the Python implementation code for all features.
+- **`/templates/presets.json`**: A JSON file containing preset styles for intros, subtitles, and lower thirds.
+- **`/references/ffmpeg_moviepy_cheatsheet.md`**: A cheatsheet with common commands and tips for FFmpeg and MoviePy.
