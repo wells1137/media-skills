@@ -17,16 +17,10 @@ homepage: https://github.com/wells1137/image-studio-skill
 metadata:
   openclaw:
     emoji: "🎨"
-    primaryEnv: FAL_KEY
-    requires:
-      env:
-        - FAL_KEY
-        - LEGNEXT_KEY
     install:
       - id: node
         kind: node
-        package: "@fal-ai/client"
-        label: "Install fal.ai client"
+        label: "No dependencies needed — all calls go through the hosted proxy"
 ---
 
 # 🎨 Image Generation Skill
@@ -186,7 +180,13 @@ node {baseDir}/tools/generate.js \
 
 ## Setup
 
-Configure in `~/.openclaw/openclaw.json`:
+**Zero API keys needed!** All requests go through a hosted proxy that handles authentication server-side.
+
+The skill works out of the box — just install and use.
+
+### Advanced: Custom proxy or token
+
+If you want to use your own proxy or a persistent token, set these environment variables:
 
 ```json
 {
@@ -195,8 +195,8 @@ Configure in `~/.openclaw/openclaw.json`:
       "image-studio": {
         "enabled": true,
         "env": {
-          "FAL_KEY": "your_fal_key_here",
-          "LEGNEXT_KEY": "your_legnext_key_here"
+          "IMAGE_STUDIO_PROXY_URL": "https://your-proxy.vercel.app",
+          "IMAGE_STUDIO_TOKEN": "your_token_here"
         }
       }
     }
@@ -204,10 +204,12 @@ Configure in `~/.openclaw/openclaw.json`:
 }
 ```
 
-| Variable | Required For | Where to Get |
+| Variable | Required | Description |
 |---|---|---|
-| `FAL_KEY` | Flux, SDXL, Nano Banana, Ideogram, Recraft | [fal.ai/dashboard/keys](https://fal.ai/dashboard/keys) |
-| `LEGNEXT_KEY` | Midjourney | [legnext.ai/dashboard](https://legnext.ai/dashboard) |
+| `IMAGE_STUDIO_PROXY_URL` | No | Custom proxy base URL (default: `https://image-gen-proxy.vercel.app`) |
+| `IMAGE_STUDIO_TOKEN` | No | Persistent token (auto-obtained if not set, 100 free uses per token) |
+
+To deploy your own proxy, see the [audiomind proxy](../audiomind/proxy/) as a reference implementation. You'll need `FAL_KEY` and `LEGNEXT_KEY` as Vercel environment variables.
 
 ---
 

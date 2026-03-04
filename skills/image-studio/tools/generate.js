@@ -1,24 +1,19 @@
 #!/usr/bin/env node
 /**
  * image-studio skill — generate.js
- * Unified image generation script for OpenClaw.
- * Supports: Midjourney (Legnext.ai), Flux Pro/Dev/Schnell, SDXL Lightning,
- *           Nano Banana Pro, Ideogram v3, Recraft v3 (all via fal.ai)
+ * Unified image generation CLI that calls the image-gen-proxy.
+ * Users never need their own API keys — the proxy holds them server-side.
  *
  * Usage:
  *   node generate.js --model <id> --prompt "<text>" [options]
  *   node generate.js --model midjourney --action upscale --index 2 --job-id <id>
- *
- * Async (non-blocking) mode for Midjourney:
- *   node generate.js --model midjourney --prompt "<text>" --async
- *     → Submits job and returns immediately with job_id (does NOT wait)
- *   node generate.js --model midjourney --poll --job-id <id>
- *     → Checks job status once and returns immediately (no waiting)
  */
 
-import { fal } from "@fal-ai/client";
-import https from "https";
 import { parseArgs } from "util";
+
+// ── Proxy configuration ────────────────────────────────────────────────────
+const PROXY_BASE = process.env.IMAGE_STUDIO_PROXY_URL || "https://image-gen-proxy.vercel.app";
+const TOKEN = process.env.IMAGE_STUDIO_TOKEN || "";
 
 // ── Parse CLI arguments ────────────────────────────────────────────────────
 const { values: args } = parseArgs({
@@ -28,74 +23,16 @@ const { values: args } = parseArgs({
     "aspect-ratio":     { type: "string", default: "1:1" },
     "num-images":       { type: "string", default: "1" },
     "negative-prompt":  { type: "string", default: "" },
-    action:             { type: "string", default: "" },   // upscale | variation | reroll
-    index:              { type: "string", default: "1" },  // 1-4 for MJ actions
-    "job-id":           { type: "string", default: "" },   // MJ jobId for actions
-    "upscale-type":     { type: "string", default: "0" },  // 0=Subtle, 1=Creative
-    "variation-type":   { type: "string", default: "0" },  // 0=Subtle, 1=Strong
-    mode:               { type: "string", default: "turbo" }, // turbo | fast | relax
+    action:             { type: "string", default: "" },
+    index:              { type: "string", default: "1" },
+    "job-id":           { type: "string", default: "" },
+    "upscale-type":     { type: "string", default: "0" },
+    "variation-type":   { type: "string", default: "0" },
+    mode:               { type: "string", default: "turbo" },
     seed:               { type: "string", default: "" },
-    async:              { type: "boolean", default: false }, // submit and return immediately
-    poll:               { type: "boolean", default: false }, // check status once, no wait
   },
   strict: false,
 });
-
-const MODEL          = args["model"];
-const PROMPT         = args["prompt"];
-const AR             = args["aspect-ratio"];
-const NUM_IMAGES     = parseInt(args["num-images"], 10) || 1;
-const NEG_PROMPT     = args["negative-prompt"];
-const ACTION         = args["action"];
-const INDEX          = parseInt(args["index"], 10) || 1;
-const JOB_ID         = args["job-id"];
-const UPSCALE_TYPE   = parseInt(args["upscale-type"], 10) || 0;
-const VARIATION_TYPE = parseInt(args["variation-type"], 10) || 0;
-const MODE           = args["mode"] || "turbo";  // turbo (~10-20s), fast (~30-60s), relax (free but slow)
-const SEED           = args["seed"] ? parseInt(args["seed"], 10) : undefined;
-const ASYNC_MODE     = args["async"] === true;
-const POLL_MODE      = args["poll"] === true;
-
-// ── Environment variables ──────────────────────────────────────────────────
-const FAL_KEY      = process.env.FAL_KEY;
-const LEGNEXT_KEY  = process.env.LEGNEXT_KEY;
-
-// ── fal.ai model IDs ───────────────────────────────────────────────────────
-const FAL_MODELS = {
-  "flux-pro":      "fal-ai/flux-pro/v1.1",
-  "flux-dev":      "fal-ai/flux/dev",
-  "flux-schnell":  "fal-ai/flux/schnell",
-  "sdxl":          "fal-ai/lightning-models/sdxl-lightning-4step",
-  "nano-banana":   "fal-ai/nano-banana-pro",
-  "ideogram":      "fal-ai/ideogram/v3",
-  "recraft":       "fal-ai/recraft-v3",
-};
-
-// ── Aspect ratio helpers ───────────────────────────────────────────────────
-function arToWidthHeight(ar) {
-  const map = {
-    "1:1":  [1024, 1024],
-    "16:9": [1344, 768],
-    "9:16": [768, 1344],
-    "4:3":  [1152, 864],
-    "3:4":  [864, 1152],
-    "3:2":  [1216, 832],
-    "2:3":  [832, 1216],
-    "21:9": [1536, 640],
-  };
-  return map[ar] || [1024, 1024];
-}
-
-function arToFalImageSize(ar) {
-  const map = {
-    "1:1":  "square_hd",
-    "16:9": "landscape_16_9",
-    "9:16": "portrait_16_9",
-    "4:3":  "landscape_4_3",
-    "3:4":  "portrait_4_3",
-  };
-  return map[ar] || "square_hd";
-}
 
 // ── Output helpers ─────────────────────────────────────────────────────────
 function output(data) {
@@ -107,389 +44,118 @@ function error(msg, details) {
   process.exit(1);
 }
 
-// ── Legnext.ai HTTP helper ─────────────────────────────────────────────────
-function legnextRequest(method, path, body) {
-  return new Promise((resolve, reject) => {
-    const payload = body ? JSON.stringify(body) : null;
-    const options = {
-      hostname: "api.legnext.ai",
-      path: `/api/v1${path}`,
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": LEGNEXT_KEY,
-        ...(payload && { "Content-Length": Buffer.byteLength(payload) }),
-      },
-    };
-    const req = https.request(options, (res) => {
-      let data = "";
-      res.on("data", (chunk) => (data += chunk));
-      res.on("end", () => {
-        try { resolve(JSON.parse(data)); }
-        catch (e) { reject(new Error(`Invalid JSON response: ${data}`)); }
-      });
-    });
-    req.on("error", reject);
-    if (payload) req.write(payload);
-    req.end();
+// ── Token management ───────────────────────────────────────────────────────
+async function getToken() {
+  if (TOKEN) return TOKEN;
+
+  process.stderr.write("[ImageStudio] No token found, requesting free token...\n");
+  const res = await fetch(`${PROXY_BASE}/api/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
   });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.token) {
+    error("Failed to obtain free token", data);
+  }
+  process.stderr.write(`[ImageStudio] Got free token (${data.free_limit || 100} uses)\n`);
+  return data.token;
 }
 
-async function legnextPoll(jobId, maxWait = 300_000, interval = 5_000) {
-  const deadline = Date.now() + maxWait;
-  while (Date.now() < deadline) {
-    const res = await legnextRequest("GET", `/job/${jobId}`);
-    const status = res.status;
-    if (status === "completed") return res;
-    if (status === "failed") throw new Error(`Midjourney job failed: ${res.error?.message || "unknown error"}`);
-    process.stderr.write(`[MJ] Status: ${status} ...\n`);
-    await new Promise((r) => setTimeout(r, interval));
+// ── Midjourney generation ──────────────────────────────────────────────────
+async function generateMidjourney(token) {
+  const action = args["action"] || "imagine";
+  const payload = { action };
+
+  if (action === "imagine") {
+    if (!args["prompt"]) error("--prompt is required for Midjourney generation.");
+    payload.prompt = args["prompt"];
+    payload.mode = args["mode"] || "turbo";
+    const ar = args["aspect-ratio"];
+    if (ar && ar !== "1:1") payload.aspectRatio = ar;
+  } else if (action === "upscale" || action === "variation") {
+    if (!args["job-id"]) error("--job-id is required for Midjourney actions.");
+    payload.jobId = args["job-id"];
+    payload.index = parseInt(args["index"], 10) || 1;
+    if (action === "upscale") payload.type = parseInt(args["upscale-type"], 10) || 0;
+    if (action === "variation") payload.type = parseInt(args["variation-type"], 10) || 0;
+    if (args["prompt"]) payload.prompt = args["prompt"];
+  } else if (action === "reroll" || action === "describe") {
+    if (!args["job-id"]) error("--job-id is required for Midjourney actions.");
+    payload.jobId = args["job-id"];
+  } else if (action === "poll") {
+    if (!args["job-id"]) error("--job-id is required for polling.");
+    payload.jobId = args["job-id"];
   }
-  throw new Error(`Midjourney job ${jobId} timed out after ${maxWait / 1000}s`);
+
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  process.stderr.write(`[ImageStudio] Midjourney ${action}...\n`);
+
+  const res = await fetch(`${PROXY_BASE}/api/midjourney`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+  return res.json().catch(() => ({}));
 }
 
-// ── Poll once (non-blocking status check) ─────────────────────────────────
-async function pollOnce(jobId) {
-  if (!LEGNEXT_KEY) error("LEGNEXT_KEY is not set.");
-  if (!jobId) error("--job-id is required for --poll mode.");
+// ── fal.ai model generation ────────────────────────────────────────────────
+async function generateFal(token) {
+  if (!args["prompt"]) error("--prompt is required.");
 
-  const res = await legnextRequest("GET", `/job/${jobId}`);
-  const status = res.status;
+  const payload = {
+    model: args["model"],
+    prompt: args["prompt"],
+    aspect_ratio: args["aspect-ratio"] || "1:1",
+    num_images: parseInt(args["num-images"], 10) || 1,
+  };
 
-  if (status === "completed") {
-    output({
-      success: true,
-      model: "midjourney",
-      jobId,
-      status: "completed",
-      imageUrl: res.output?.image_url || null,
-      imageUrls: res.output?.image_urls || [],
-      seed: res.output?.seed || null,
-      note: "4 images generated. Use --action upscale --index <1-4> --job-id to upscale, or --action variation to create variants.",
-    });
-  } else if (status === "failed") {
-    output({
-      success: false,
-      model: "midjourney",
-      jobId,
-      status: "failed",
-      error: res.error?.message || "Job failed",
-    });
-  } else {
-    // Still pending/processing
-    output({
-      success: true,
-      model: "midjourney",
-      jobId,
-      status: status || "pending",
-      pending: true,
-      message: `Job is still ${status || "pending"}. Check again in a few seconds.`,
-    });
-  }
-}
+  if (args["negative-prompt"]) payload.negative_prompt = args["negative-prompt"];
+  if (args["seed"]) payload.seed = parseInt(args["seed"], 10);
 
-// ── Midjourney via Legnext.ai ──────────────────────────────────────────────
-async function generateMidjourney() {
-  if (!LEGNEXT_KEY) error("LEGNEXT_KEY is not set. Please configure it in your OpenClaw skill env.");
+  const headers = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  // ── Poll mode (non-blocking status check) ─────────────────────────────
-  if (POLL_MODE) {
-    await pollOnce(JOB_ID);
-    return;
-  }
+  process.stderr.write(`[ImageStudio] Generating with ${payload.model}...\n`);
 
-  // ── Upscale action ─────────────────────────────────────────────────────
-  if (ACTION === "upscale" && JOB_ID) {
-    const imageNo = INDEX - 1; // Convert 1-4 to 0-3
-    process.stderr.write(`[MJ] Upscaling image ${INDEX} (imageNo=${imageNo}, type=${UPSCALE_TYPE}) from job ${JOB_ID}\n`);
-    const res = await legnextRequest("POST", "/upscale", {
-      jobId: JOB_ID,
-      imageNo,
-      type: UPSCALE_TYPE,
-    });
-    if (!res.job_id) error("Legnext upscale submission failed", res);
-    process.stderr.write(`[MJ] Upscale job submitted: ${res.job_id}\n`);
-
-    if (ASYNC_MODE) {
-      output({
-        success: true,
-        model: "midjourney",
-        action: "upscale",
-        jobId: res.job_id,
-        status: "submitted",
-        pending: true,
-        message: `Upscale job submitted (job_id: ${res.job_id}). Use --poll --job-id ${res.job_id} to check status.`,
-      });
-      return;
-    }
-
-    const result = await legnextPoll(res.job_id);
-    output({
-      success: true,
-      model: "midjourney",
-      action: "upscale",
-      jobId: res.job_id,
-      imageUrl: result.output?.image_url || null,
-    });
-    return;
-  }
-
-  // ── Variation action ───────────────────────────────────────────────────
-  if (ACTION === "variation" && JOB_ID) {
-    const imageNo = INDEX - 1; // Convert 1-4 to 0-3
-    process.stderr.write(`[MJ] Creating variation for image ${INDEX} (imageNo=${imageNo}, type=${VARIATION_TYPE}) from job ${JOB_ID}\n`);
-    const body = {
-      jobId: JOB_ID,
-      imageNo,
-      type: VARIATION_TYPE,
-    };
-    if (PROMPT) body.remixPrompt = PROMPT;
-    const res = await legnextRequest("POST", "/variation", body);
-    if (!res.job_id) error("Legnext variation submission failed", res);
-    process.stderr.write(`[MJ] Variation job submitted: ${res.job_id}\n`);
-
-    if (ASYNC_MODE) {
-      output({
-        success: true,
-        model: "midjourney",
-        action: "variation",
-        jobId: res.job_id,
-        status: "submitted",
-        pending: true,
-        message: `Variation job submitted (job_id: ${res.job_id}). Use --poll --job-id ${res.job_id} to check status.`,
-      });
-      return;
-    }
-
-    const result = await legnextPoll(res.job_id);
-    output({
-      success: true,
-      model: "midjourney",
-      action: "variation",
-      jobId: res.job_id,
-      imageUrl: result.output?.image_url || null,
-      imageUrls: result.output?.image_urls || [],
-    });
-    return;
-  }
-
-  // ── Reroll action ──────────────────────────────────────────────────────
-  if (ACTION === "reroll" && JOB_ID) {
-    process.stderr.write(`[MJ] Rerolling job ${JOB_ID}\n`);
-    const res = await legnextRequest("POST", "/reroll", { jobId: JOB_ID });
-    if (!res.job_id) error("Legnext reroll submission failed", res);
-    process.stderr.write(`[MJ] Reroll job submitted: ${res.job_id}\n`);
-
-    if (ASYNC_MODE) {
-      output({
-        success: true,
-        model: "midjourney",
-        action: "reroll",
-        jobId: res.job_id,
-        status: "submitted",
-        pending: true,
-        message: `Reroll job submitted (job_id: ${res.job_id}). Use --poll --job-id ${res.job_id} to check status.`,
-      });
-      return;
-    }
-
-    const result = await legnextPoll(res.job_id);
-    output({
-      success: true,
-      model: "midjourney",
-      action: "reroll",
-      jobId: res.job_id,
-      imageUrl: result.output?.image_url || null,
-      imageUrls: result.output?.image_urls || [],
-    });
-    return;
-  }
-
-  // ── Describe action ────────────────────────────────────────────────────
-  if (ACTION === "describe" && JOB_ID) {
-    process.stderr.write(`[MJ] Describing job ${JOB_ID}\n`);
-    const res = await legnextRequest("POST", "/describe", { jobId: JOB_ID });
-    if (!res.job_id) error("Legnext describe submission failed", res);
-    const result = await legnextPoll(res.job_id);
-    output({
-      success: true,
-      model: "midjourney",
-      action: "describe",
-      jobId: res.job_id,
-      description: result.output?.text || null,
-    });
-    return;
-  }
-
-  // ── Standard imagine ───────────────────────────────────────────────────
-  if (!PROMPT) error("--prompt is required for Midjourney generation.");
-
-  // Append aspect ratio to prompt if not 1:1
-  let mjPrompt = PROMPT;
-  if (AR && AR !== "1:1") {
-    mjPrompt += ` --ar ${AR}`;
-  }
-  // Append speed mode flag
-  if (MODE === "turbo") {
-    mjPrompt += " --turbo";
-  } else if (MODE === "fast") {
-    mjPrompt += " --fast";
-  } else if (MODE === "relax") {
-    mjPrompt += " --relax";
-  }
-
-  process.stderr.write(`[MJ] Submitting imagine via Legnext.ai (mode=${MODE}): "${mjPrompt}"\n`);
-  const res = await legnextRequest("POST", "/diffusion", {
-    text: mjPrompt,
+  const res = await fetch(`${PROXY_BASE}/api/generate`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
   });
-
-  if (!res.job_id) error("Legnext imagine submission failed", res);
-  const jobId = res.job_id;
-  process.stderr.write(`[MJ] Job submitted: ${jobId}\n`);
-
-  // ── Async mode: return immediately after submission ────────────────────
-  if (ASYNC_MODE) {
-    output({
-      success: true,
-      model: "midjourney",
-      provider: "legnext.ai",
-      jobId,
-      status: "submitted",
-      pending: true,
-      prompt: mjPrompt,
-      message: `✅ Midjourney job submitted! job_id: ${jobId}\n\nGeneration takes ~10-20s (turbo) or ~30-60s (fast). I'll notify you when it's done.\n\nTo check manually: node generate.js --model midjourney --poll --job-id ${jobId}`,
-    });
-    return;
-  }
-
-  // ── Sync mode: wait for completion (default, may block Bot) ───────────
-  const result = await legnextPoll(jobId);
-
-  output({
-    success: true,
-    model: "midjourney",
-    provider: "legnext.ai",
-    jobId,
-    prompt: mjPrompt,
-    imageUrl: result.output?.image_url || null,
-    imageUrls: result.output?.image_urls || [],
-    seed: result.output?.seed || null,
-    note: "4 images generated. Use --action upscale --index <1-4> --job-id to upscale, or --action variation to create variants.",
-  });
-}
-
-// ── fal.ai models ──────────────────────────────────────────────────────────
-async function generateFal(modelKey) {
-  if (!FAL_KEY) error("FAL_KEY is not set. Please configure it in your OpenClaw skill env.");
-  fal.config({ credentials: FAL_KEY });
-
-  const modelId = FAL_MODELS[modelKey];
-  if (!modelId) error(`Unknown fal.ai model key: ${modelKey}`);
-  if (!PROMPT) error("--prompt is required.");
-
-  const [width, height] = arToWidthHeight(AR);
-  const imageSize = arToFalImageSize(AR);
-
-  let input = {};
-
-  if (modelKey === "flux-pro") {
-    input = {
-      prompt: PROMPT,
-      image_size: imageSize,
-      num_images: Math.min(NUM_IMAGES, 4),
-      ...(SEED !== undefined && { seed: SEED }),
-      safety_tolerance: "2",
-      output_format: "jpeg",
-    };
-  } else if (modelKey === "flux-dev") {
-    input = {
-      prompt: PROMPT,
-      image_size: imageSize,
-      num_inference_steps: 28,
-      num_images: Math.min(NUM_IMAGES, 4),
-      enable_safety_checker: true,
-      ...(SEED !== undefined && { seed: SEED }),
-    };
-  } else if (modelKey === "flux-schnell") {
-    input = {
-      prompt: PROMPT,
-      image_size: imageSize,
-      num_inference_steps: 4,
-      num_images: Math.min(NUM_IMAGES, 4),
-      enable_safety_checker: true,
-      ...(SEED !== undefined && { seed: SEED }),
-    };
-  } else if (modelKey === "sdxl") {
-    input = {
-      prompt: PROMPT,
-      negative_prompt: NEG_PROMPT || "blurry, low quality, distorted",
-      image_size: { width, height },
-      num_images: Math.min(NUM_IMAGES, 4),
-      ...(SEED !== undefined && { seed: SEED }),
-    };
-  } else if (modelKey === "nano-banana") {
-    input = {
-      prompt: PROMPT,
-      image_size: imageSize,
-      num_images: Math.min(NUM_IMAGES, 4),
-      ...(SEED !== undefined && { seed: SEED }),
-    };
-  } else if (modelKey === "ideogram") {
-    input = {
-      prompt: PROMPT,
-      aspect_ratio: AR,
-      num_images: Math.min(NUM_IMAGES, 4),
-      ...(NEG_PROMPT && { negative_prompt: NEG_PROMPT }),
-      ...(SEED !== undefined && { seed: SEED }),
-    };
-  } else if (modelKey === "recraft") {
-    input = {
-      prompt: PROMPT,
-      image_size: imageSize,
-      style: "realistic_image",
-      num_images: Math.min(NUM_IMAGES, 4),
-    };
-  }
-
-  process.stderr.write(`[fal] Calling ${modelId} ...\n`);
-  const result = await fal.subscribe(modelId, {
-    input,
-    onQueueUpdate(update) {
-      if (update.status === "IN_QUEUE") {
-        process.stderr.write(`[fal] Queue position: ${update.position ?? "?"}\n`);
-      } else if (update.status === "IN_PROGRESS") {
-        process.stderr.write(`[fal] Generating...\n`);
-      }
-    },
-  });
-
-  const images = (result.data?.images || []).map((img) =>
-    typeof img === "string" ? img : img.url
-  );
-
-  output({
-    success: true,
-    model: modelKey,
-    modelId,
-    prompt: PROMPT,
-    images,
-    imageUrl: images[0] || null,
-    seed: result.data?.seed ?? null,
-    timings: result.data?.timings ?? null,
-  });
+  return res.json().catch(() => ({}));
 }
 
 // ── Main ───────────────────────────────────────────────────────────────────
 async function main() {
-  if (MODEL === "midjourney") {
-    await generateMidjourney();
-  } else if (FAL_MODELS[MODEL]) {
-    await generateFal(MODEL);
-  } else {
-    error(`Unknown model: "${MODEL}". Valid options: midjourney, flux-pro, flux-dev, flux-schnell, sdxl, nano-banana, ideogram, recraft`);
+  const model = args["model"];
+
+  let token;
+  try {
+    token = await getToken();
+  } catch (err) {
+    process.stderr.write(`[ImageStudio] Warning: token request failed (${err.message}), proceeding without token\n`);
+    token = "";
+  }
+
+  try {
+    let result;
+    if (model === "midjourney") {
+      result = await generateMidjourney(token);
+    } else {
+      result = await generateFal(token);
+    }
+
+    if (result.success === false || result.error) {
+      error(result.error || "Generation failed", result);
+    }
+
+    output(result);
+  } catch (err) {
+    error(err.message, err.code);
   }
 }
 
-main().catch((err) => {
-  error(err.message, err.stack);
-});
+main();

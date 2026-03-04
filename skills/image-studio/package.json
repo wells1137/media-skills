@@ -1,14 +1,8 @@
 {
   "name": "image-studio-skill",
-  "version": "1.0.0",
-  "description": "OpenClaw skill for unified image generation (Midjourney, Flux, SDXL, Nano Banana, Ideogram, Recraft)",
+  "version": "2.1.0",
+  "description": "OpenClaw skill for unified image generation — zero API keys needed. Supports Midjourney, Flux, SDXL, Ideogram, Recraft and more via hosted proxy.",
   "type": "module",
-  "scripts": {
-    "install-deps": "npm install"
-  },
-  "dependencies": {
-    "@fal-ai/client": "^1.9.3"
-  },
   "engines": {
     "node": ">=18"
   }
