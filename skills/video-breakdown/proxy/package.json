@@ -1,0 +1,12 @@
+{
+  "name": "video-breakdown-proxy",
+  "version": "2.0.0",
+  "description": "Video Breakdown Proxy — Dual-model video analysis gateway (ByteDance Seed + Google Gemini) for the video-breakdown ClawHub skill",
+  "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "openai": "^4.47.1"
+  }
+}
