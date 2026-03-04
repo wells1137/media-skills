@@ -24,6 +24,22 @@ function authenticateRequest(req) {
   return key && VALID_PRO_KEYS.includes(key);
 }
 
+function inferAction(body) {
+  if (body.action) return body.action.toLowerCase();
+
+  const model = String(body.model || "").toLowerCase();
+  if (model.includes("sfx")) return "sfx";
+  if (model.includes("music") || model.includes("cassette")) return "music";
+  if (model.includes("tts") || model.includes("eleven")) return "tts";
+
+  const combined = `${body.prompt || ""} ${body.text || ""}`.toLowerCase();
+  if (/\b(sfx|sound effect|whoosh|explosion|rain|thunder|bird|dog bark|foley)\b/.test(combined)) return "sfx";
+  if (/(音效|雨声|雷声|鸟鸣|狗叫|铃声|爆炸|呼啸|环境音)/.test(combined)) return "sfx";
+  if (/\b(music|track|song|melody|beat|lo-fi|soundtrack|bgm)\b/.test(combined)) return "music";
+  if (/(音乐|配乐|背景音乐|纯音乐|lo-?fi)/.test(combined)) return "music";
+  return "tts";
+}
+
 async function handleTTS(body) {
   const text = body.text || body.prompt;
   if (!text) throw new Error("Missing text for TTS");
@@ -162,7 +178,7 @@ module.exports = async function handler(req, res) {
     return errorResponse(res, 400, "Missing text or prompt in request body");
   }
 
-  const action = (body.action || "tts").toLowerCase();
+  const action = inferAction(body);
 
   try {
     let result;
